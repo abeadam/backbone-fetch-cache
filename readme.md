@@ -163,6 +163,11 @@ By default the cache is persisted in localStorage (if available). Set `Backbone.
 Backbone.fetchCache.localStorage = false;
 ```
 
+### Promise Parameters
+By default the first parameter to the promise is the instance initiating the fetch. Set `Backone.fetchCache.selfParameter = false` to not include the instance as first parameter.
+```js
+Backbone.fetchCache.selfParameter = false;
+```
 ### Custom cache keys
 
 By default the cache key is generated from the model's `url` property and the requests params:
