@@ -398,6 +398,11 @@
         opts.async = true;
       }
 
+      // Execute beforeSend
+      if (opts.beforeSend) {
+        opts.beforeSend.apply(this, [data, this]); // normally is jqXHR, this, but we don't store the jqXHR so sending data instead
+      }
+
       if (opts.async) {
         nextTick(setData);
       } else {
