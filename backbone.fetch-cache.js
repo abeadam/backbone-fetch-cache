@@ -277,7 +277,7 @@
 
       // Execute beforeSend
       if (opts.beforeSend) {
-        opts.beforeSend.apply(this, [data, this]); // normally is jqXHR, this, but we don't store the jqXHR so sending data instead
+        opts.beforeSend.apply(this, [deferred, opts]); // normally is jqXHR, this, but we don't store the jqXHR so sending data instead
       }
       if (opts.async) {
         nextTick(setData);
@@ -292,12 +292,14 @@
 
     // Delegate to the actual fetch method and store the attributes in the cache
     var jqXHR = superMethods.modelFetch.apply(this, arguments),
-      resolveArgs = [this];
+      resolveArgs = [];
     if (Backbone.fetchCache.selfParameter) {
       resolveArgs.push(this);
     }
     // resolve the returned promise when the AJAX call completes
-    jqXHR.done(_.bind.apply(_, [deferred.resolve].concat(resolveArgs)))
+    jqXHR.done(function(data) {
+      deferred.resolve.apply(self, resolveArgs.concat([data, self]));
+    })
     // Set the new data in the cache
     .done(_.bind(Backbone.fetchCache.setCache, null, this, opts))
     // Reject the promise on fail
@@ -400,7 +402,7 @@
 
       // Execute beforeSend
       if (opts.beforeSend) {
-        opts.beforeSend.apply(this, [data, this]); // normally is jqXHR, this, but we don't store the jqXHR so sending data instead
+        opts.beforeSend.apply(this, [deferred, opts]); // normally is jqXHR, this, but we don't store the jqXHR so sending data instead
       }
 
       if (opts.async) {
@@ -416,12 +418,14 @@
 
     // Delegate to the actual fetch method and store the attributes in the cache
     var jqXHR = superMethods.collectionFetch.apply(this, arguments),
-      resolveArgs = [this];
+      resolveArgs = [];
     if (Backbone.fetchCache.selfParameter) {
       resolveArgs.push(this);
     }
     // resolve the returned promise when the AJAX call completes
-    jqXHR.done(_.bind.apply(_, [deferred.resolve].concat(resolveArgs)))
+    jqXHR.done(function(data) {
+      deferred.resolve.apply(self, resolveArgs.concat([data, self]));
+    })
     // Set the new data in the cache
     .done(_.bind(Backbone.fetchCache.setCache, null, this, opts))
     // Reject the promise on fail

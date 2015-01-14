@@ -33,26 +33,36 @@ describe('Backbone.fetchCache', function() {
 
     // Mock xhr resposes
     server = sinon.fakeServer.create();
-    modelResponse = { sausages: 'bacon' };
-    collectionResponse = [{ sausages: 'bacon' }, { rice: 'peas' }];
+    modelResponse = {
+      sausages: 'bacon'
+    };
+    collectionResponse = [{
+      sausages: 'bacon'
+    }, {
+      rice: 'peas'
+    }];
     server.respondWith('GET', model.url, [
-      200,
-      { 'Content-Type': 'application/json' },
+      200, {
+        'Content-Type': 'application/json'
+      },
       JSON.stringify(modelResponse)
     ]);
     server.respondWith('GET', collection.url, [
-      200,
-      { 'Content-Type': 'application/json' },
+      200, {
+        'Content-Type': 'application/json'
+      },
       JSON.stringify(collectionResponse)
     ]);
     server.respondWith('GET', errorModel.url, [
-      500,
-      { 'Content-Type': 'test/html' },
+      500, {
+        'Content-Type': 'test/html'
+      },
       'Server Error'
     ]);
     server.respondWith('GET', errorCollection.url, [
-      500,
-      { 'Content-Type': 'test/html' },
+      500, {
+        'Content-Type': 'test/html'
+      },
       'Server Error'
     ]);
   });
@@ -72,7 +82,7 @@ describe('Backbone.fetchCache', function() {
       window.define = jasmine.createSpy('AMD define');
       window.define.amd = true;
 
-      s.onload = function(){
+      s.onload = function() {
         expect(window.define).toHaveBeenCalled();
       };
 
@@ -82,7 +92,9 @@ describe('Backbone.fetchCache', function() {
 
   describe('.getCacheKey', function() {
     it('uses options url with priority if set', function() {
-      expect(Backbone.fetchCache.getCacheKey(model, {url: '/options-test-url'}))
+      expect(Backbone.fetchCache.getCacheKey(model, {
+        url: '/options-test-url'
+      }))
         .toEqual('/options-test-url');
     });
 
@@ -95,17 +107,21 @@ describe('Backbone.fetchCache', function() {
       var value = {
         'string': 'stringValue',
         'float': 2.1,
-        'bool':false
+        'bool': false
       };
       var expected = model.url + '?string=stringValue&float=2.1&bool=false';
-      expect(Backbone.fetchCache.getCacheKey(model, {data: value}))
+      expect(Backbone.fetchCache.getCacheKey(model, {
+        data: value
+      }))
         .toEqual(expected);
     });
 
     it('generates a standard querystring if data is a string', function() {
       var value = 'test';
       var expected = model.url + '?test';
-      expect(Backbone.fetchCache.getCacheKey(model, {data: value}))
+      expect(Backbone.fetchCache.getCacheKey(model, {
+        data: value
+      }))
         .toEqual(expected);
     });
   });
@@ -113,7 +129,7 @@ describe('Backbone.fetchCache', function() {
   describe('custom cache key', function() {
     var customModel;
     beforeEach(function() {
-      customModel = new (Backbone.Model.extend({
+      customModel = new(Backbone.Model.extend({
         getCacheKey: function(options) {
           return 'cache_token';
         }
@@ -130,7 +146,9 @@ describe('Backbone.fetchCache', function() {
     var opts;
 
     beforeEach(function() {
-      opts = { cache: true };
+      opts = {
+        cache: true
+      };
     });
 
     it('noops if the instance does not have a url', function() {
@@ -144,7 +162,7 @@ describe('Backbone.fetchCache', function() {
       expect(Backbone.fetchCache._cache[model.url]).toBeUndefined();
     });
 
-    it('keys cache items by the getCacheKey method',function() {
+    it('keys cache items by the getCacheKey method', function() {
       spyOn(Backbone.fetchCache, 'getCacheKey').andReturn('someCacheKey');
       Backbone.fetchCache.setCache(model, opts, modelResponse);
       expect(Backbone.fetchCache._cache['someCacheKey'].value)
@@ -159,7 +177,9 @@ describe('Backbone.fetchCache', function() {
 
     describe('with prefill: true option', function() {
       beforeEach(function() {
-        opts = { prefill: true };
+        opts = {
+          prefill: true
+        };
       });
 
       it('caches even if cache: true is not passed', function() {
@@ -198,27 +218,38 @@ describe('Backbone.fetchCache', function() {
       });
 
       it('sets default expiry times for cache keys', function() {
-        Backbone.fetchCache.setCache(model, { cache: true }, modelResponse);
+        Backbone.fetchCache.setCache(model, {
+          cache: true
+        }, modelResponse);
         expect(Backbone.fetchCache._cache[cacheKey].expires)
-          .toEqual((new Date()).getTime() + (5* 60 * 1000));
+          .toEqual((new Date()).getTime() + (5 * 60 * 1000));
       });
 
       it('sets expiry times for cache keys', function() {
-        var opts = { cache: true, expires: 1000 };
+        var opts = {
+          cache: true,
+          expires: 1000
+        };
         Backbone.fetchCache.setCache(model, opts, modelResponse);
         expect(Backbone.fetchCache._cache[cacheKey].expires)
           .toEqual((new Date()).getTime() + (opts.expires * 1000));
       });
 
       it('is not set if expires: false is set', function() {
-        var opts = { cache: true, expires: false };
+        var opts = {
+          cache: true,
+          expires: false
+        };
         Backbone.fetchCache.setCache(model, opts, modelResponse);
         expect(Backbone.fetchCache._cache[cacheKey].expires)
           .toEqual(false);
       });
 
       it('fires cacheexpired event', function() {
-        var opts = { cache: true, expires: 0.5 };
+        var opts = {
+          cache: true,
+          expires: 0.5
+        };
         Backbone.fetchCache.setCache(model, opts, modelResponse);
 
         // Should not be called since it hasn't expired
@@ -235,7 +266,9 @@ describe('Backbone.fetchCache', function() {
   describe('.getCache', function() {
     var lastSync;
     beforeEach(function() {
-      var opts = {cache: true};
+      var opts = {
+        cache: true
+      };
       Backbone.fetchCache.setCache(model, opts, modelResponse);
     });
 
@@ -245,7 +278,9 @@ describe('Backbone.fetchCache', function() {
     });
 
     it('gets correct cache by function key', function() {
-      var key = function () { return model.url; };
+      var key = function() {
+        return model.url;
+      };
       expect(Backbone.fetchCache.getCache(key)).toBeDefined();
       expect(Backbone.fetchCache.getCache(key).value).toEqual(modelResponse);
     });
@@ -260,7 +295,10 @@ describe('Backbone.fetchCache', function() {
     var lastSync;
     beforeEach(function() {
       lastSync = (new Date()).getTime();
-      var opts = {lastSync: lastSync, cache: true};
+      var opts = {
+        lastSync: lastSync,
+        cache: true
+      };
       Backbone.fetchCache.setCache(model, opts, modelResponse);
     });
 
@@ -269,7 +307,9 @@ describe('Backbone.fetchCache', function() {
     });
 
     it('gets correct last sync by function key', function() {
-      var key = function () { return model.url; };
+      var key = function() {
+        return model.url;
+      };
       expect(Backbone.fetchCache.getLastSync(key)).toEqual(lastSync);
     });
 
@@ -281,18 +321,30 @@ describe('Backbone.fetchCache', function() {
   describe('.clearItem', function() {
     beforeEach(function() {
       Backbone.fetchCache._cache = {
-        '/item/1': { foo: 'bar' },
-        '/item/2': { beep: 'boop' },
-        '/item/3': { monty: 'zuma' },
-        '/item/4?id=007': { james: 'bond' },
-        'foobarbaz': { monkey: 'wrench' }
+        '/item/1': {
+          foo: 'bar'
+        },
+        '/item/2': {
+          beep: 'boop'
+        },
+        '/item/3': {
+          monty: 'zuma'
+        },
+        '/item/4?id=007': {
+          james: 'bond'
+        },
+        'foobarbaz': {
+          monkey: 'wrench'
+        }
       };
     });
 
     it('deletes a single item from the cache', function() {
       Backbone.fetchCache.clearItem('/item/1');
       expect(Backbone.fetchCache._cache['/item/1']).toBeUndefined();
-      expect(Backbone.fetchCache._cache['/item/2']).toEqual({ beep: 'boop' });
+      expect(Backbone.fetchCache._cache['/item/2']).toEqual({
+        beep: 'boop'
+      });
     });
 
     it('updates localStorage', function() {
@@ -301,26 +353,30 @@ describe('Backbone.fetchCache', function() {
       expect(Backbone.fetchCache.setLocalStorage).toHaveBeenCalled();
     });
 
-    it('takes a function too', function () {
-      Backbone.fetchCache.clearItem(function () {
+    it('takes a function too', function() {
+      Backbone.fetchCache.clearItem(function() {
         return '/item/3';
       });
       expect(Backbone.fetchCache._cache['/item/3']).toBeUndefined();
     });
 
-    it('or entity with url', function () {
+    it('or entity with url', function() {
       var entity = {
-        url: function () {
+        url: function() {
           return '/item/4';
         }
       };
-      Backbone.fetchCache.clearItem(entity, {data: {id: '007'}});
+      Backbone.fetchCache.clearItem(entity, {
+        data: {
+          id: '007'
+        }
+      });
       expect(Backbone.fetchCache._cache['/item/4?id=007']).toBeUndefined();
     });
 
-    it('or entity with custom key', function () {
+    it('or entity with custom key', function() {
       var entity = {
-        getCacheKey: function () {
+        getCacheKey: function() {
           return 'foobarbaz';
         }
       };
@@ -332,8 +388,18 @@ describe('Backbone.fetchCache', function() {
   describe('.setLocalStorage', function() {
     it('puts the cache into localStorage', function() {
       var cache = Backbone.fetchCache._cache = {
-        '/url1': { expires: false, value: { bacon: 'sandwich' } },
-        '/url2': { expires: false, value: { egg: 'roll' } }
+        '/url1': {
+          expires: false,
+          value: {
+            bacon: 'sandwich'
+          }
+        },
+        '/url2': {
+          expires: false,
+          value: {
+            egg: 'roll'
+          }
+        }
       };
       Backbone.fetchCache.setLocalStorage();
       expect(localStorage.getItem('backboneCache')).toEqual(JSON.stringify(cache));
@@ -341,8 +407,18 @@ describe('Backbone.fetchCache', function() {
 
     it('does not put the cache into localStorage if localStorage is false', function() {
       var cache = Backbone.fetchCache._cache = {
-        '/url1': { expires: false, value: { bacon: 'sandwich' } },
-        '/url2': { expires: false, value: { egg: 'roll' } }
+        '/url1': {
+          expires: false,
+          value: {
+            bacon: 'sandwich'
+          }
+        },
+        '/url2': {
+          expires: false,
+          value: {
+            egg: 'roll'
+          }
+        }
       };
       Backbone.fetchCache.localStorage = false;
       Backbone.fetchCache.setLocalStorage();
@@ -356,8 +432,18 @@ describe('Backbone.fetchCache', function() {
   describe('.getLocalStorage', function() {
     it('primes the cache from localStorage', function() {
       var cache = {
-        '/url1': { expires: false, value: { bacon: 'sandwich' } },
-        '/url2': { expires: false, value: { egg: 'roll' } }
+        '/url1': {
+          expires: false,
+          value: {
+            bacon: 'sandwich'
+          }
+        },
+        '/url2': {
+          expires: false,
+          value: {
+            egg: 'roll'
+          }
+        }
       };
       localStorage.setItem('backboneCache', JSON.stringify(cache));
       Backbone.fetchCache.getLocalStorage();
@@ -374,8 +460,18 @@ describe('Backbone.fetchCache', function() {
     describe('.prioritize', function() {
       it('prioritizes older results by default', function() {
         var cache = {
-          '/url1': { expires: 1000, value: { bacon: 'sandwich' } },
-          '/url2': { expires: 1500, value: { egg: 'roll' } }
+          '/url1': {
+            expires: 1000,
+            value: {
+              bacon: 'sandwich'
+            }
+          },
+          '/url2': {
+            expires: 1500,
+            value: {
+              egg: 'roll'
+            }
+          }
         };
         localStorage.setItem('backboneCache', JSON.stringify(cache));
         Backbone.fetchCache.getLocalStorage();
@@ -387,8 +483,18 @@ describe('Backbone.fetchCache', function() {
     describe('.priorityFn', function() {
       it('should take a custom priorityFn sorting function', function() {
         var cache = {
-          '/url1': { expires: 1000, value: { bacon: 'sandwich' } },
-          '/url2': { expires: 1500, value: { egg: 'roll' } }
+          '/url1': {
+            expires: 1000,
+            value: {
+              bacon: 'sandwich'
+            }
+          },
+          '/url2': {
+            expires: 1500,
+            value: {
+              egg: 'roll'
+            }
+          }
         };
         localStorage.setItem('backboneCache', JSON.stringify(cache));
         Backbone.fetchCache.getLocalStorage();
@@ -412,8 +518,18 @@ describe('Backbone.fetchCache', function() {
         spyOn(Backbone.fetchCache, '_deleteCacheWithPriority');
 
         Backbone.fetchCache._cache = {
-          '/url1': { expires: 1000, value: { bacon: 'sandwich' } },
-          '/url2': { expires: 1500, value: { egg: 'roll' } }
+          '/url1': {
+            expires: 1000,
+            value: {
+              bacon: 'sandwich'
+            }
+          },
+          '/url2': {
+            expires: 1500,
+            value: {
+              egg: 'roll'
+            }
+          }
         };
         Backbone.fetchCache.setLocalStorage();
         expect(Backbone.fetchCache._deleteCacheWithPriority).toHaveBeenCalled();
@@ -431,8 +547,18 @@ describe('Backbone.fetchCache', function() {
         spyOn(Backbone.fetchCache, '_deleteCacheWithPriority');
 
         Backbone.fetchCache._cache = {
-          '/url1': { expires: 1000, value: { bacon: 'sandwich' } },
-          '/url2': { expires: 1500, value: { egg: 'roll' } }
+          '/url1': {
+            expires: 1000,
+            value: {
+              bacon: 'sandwich'
+            }
+          },
+          '/url2': {
+            expires: 1500,
+            value: {
+              egg: 'roll'
+            }
+          }
         };
         Backbone.fetchCache.setLocalStorage();
         expect(Backbone.fetchCache._deleteCacheWithPriority).toHaveBeenCalled();
@@ -450,8 +576,18 @@ describe('Backbone.fetchCache', function() {
         spyOn(Backbone.fetchCache, '_deleteCacheWithPriority');
 
         Backbone.fetchCache._cache = {
-          '/url1': { expires: 1000, value: { bacon: 'sandwich' } },
-          '/url2': { expires: 1500, value: { egg: 'roll' } }
+          '/url1': {
+            expires: 1000,
+            value: {
+              bacon: 'sandwich'
+            }
+          },
+          '/url2': {
+            expires: 1500,
+            value: {
+              egg: 'roll'
+            }
+          }
         };
         Backbone.fetchCache.setLocalStorage();
         expect(Backbone.fetchCache._deleteCacheWithPriority).toHaveBeenCalled();
@@ -459,14 +595,31 @@ describe('Backbone.fetchCache', function() {
 
       it('should delete a cached item according to what is returned by priorityFn', function() {
         var cache = {
-          '/url1': { expires: 1000, value: { bacon: 'sandwich' } },
-          '/url2': { expires: 1500, value: { egg: 'roll' } }
+          '/url1': {
+            expires: 1000,
+            value: {
+              bacon: 'sandwich'
+            }
+          },
+          '/url2': {
+            expires: 1500,
+            value: {
+              egg: 'roll'
+            }
+          }
         };
         localStorage.setItem('backboneCache', JSON.stringify(cache));
         Backbone.fetchCache.getLocalStorage();
         Backbone.fetchCache._deleteCacheWithPriority();
         expect(Backbone.fetchCache._cache)
-          .toEqual({'/url2': { expires: 1500, value: { egg: 'roll' } }});
+          .toEqual({
+            '/url2': {
+              expires: 1500,
+              value: {
+                egg: 'roll'
+              }
+            }
+          });
       });
     });
   });
@@ -476,19 +629,25 @@ describe('Backbone.fetchCache', function() {
       var cacheData;
 
       beforeEach(function() {
-        cacheData = { cheese: 'pickle' };
+        cacheData = {
+          cheese: 'pickle'
+        };
       });
 
       it('saves returned attributes to the cache', function() {
         var cacheKey = Backbone.fetchCache.getCacheKey(model);
-        model.fetch({ cache: true });
+        model.fetch({
+          cache: true
+        });
         server.respond();
         expect(Backbone.fetchCache._cache[cacheKey].value)
           .toEqual(model.toJSON());
       });
 
       it('passes the instance and options through to setCache', function() {
-        var opts = { banana: 'bread' };
+        var opts = {
+          banana: 'bread'
+        };
         spyOn(Backbone.fetchCache, 'setCache');
 
         model.fetch(opts);
@@ -501,10 +660,12 @@ describe('Backbone.fetchCache', function() {
       it('sets data from the cache if cache: true is set', function() {
         Backbone.fetchCache._cache[model.url] = {
           value: cacheData,
-          expires: (new Date()).getTime() + (5* 60 * 1000)
+          expires: (new Date()).getTime() + (5 * 60 * 1000)
         };
 
-        waitsFor(promiseComplete(model.fetch({ cache: true })));
+        waitsFor(promiseComplete(model.fetch({
+          cache: true
+        })));
 
         runs(function() {
           expect(model.toJSON()).toEqual(cacheData);
@@ -514,7 +675,7 @@ describe('Backbone.fetchCache', function() {
       it('does not set cache data if cache: true is not set', function() {
         Backbone.fetchCache._cache[model.url] = {
           value: cacheData,
-          expires: (new Date()).getTime() + (5* 60 * 1000)
+          expires: (new Date()).getTime() + (5 * 60 * 1000)
         };
 
         waitsFor(promiseComplete(model.fetch()));
@@ -529,7 +690,7 @@ describe('Backbone.fetchCache', function() {
       it('does not set cache data if the cache item is stale', function() {
         Backbone.fetchCache._cache[model.url] = {
           value: cacheData,
-          expires: (new Date()).getTime() - (5* 60 * 1000)
+          expires: (new Date()).getTime() - (5 * 60 * 1000)
         };
 
         waitsFor(promiseComplete(model.fetch()));
@@ -543,13 +704,17 @@ describe('Backbone.fetchCache', function() {
       });
 
       it('sets cache data if the item has expires: false', function() {
-        var cacheData = { cheese: 'pickle' };
+        var cacheData = {
+          cheese: 'pickle'
+        };
         Backbone.fetchCache._cache[model.url] = {
           value: cacheData,
           expires: false
         };
 
-        waitsFor(promiseComplete(model.fetch({ cache: true })));
+        waitsFor(promiseComplete(model.fetch({
+          cache: true
+        })));
 
         runs(function() {
           expect(model.toJSON()).toEqual(cacheData);
@@ -578,7 +743,9 @@ describe('Backbone.fetchCache', function() {
 
         it('calls the error callback', function() {
           var spy = jasmine.createSpy('error');
-          var promise = errorModel.fetch({ error: spy });
+          var promise = errorModel.fetch({
+            error: spy
+          });
 
           waitsFor(promiseComplete(promise));
           server.respond();
@@ -594,15 +761,19 @@ describe('Backbone.fetchCache', function() {
         var promise, successSpy, cacheData;
 
         beforeEach(function() {
-          cacheData = { cheese: 'pickle' };
+          cacheData = {
+            cheese: 'pickle'
+          };
           successSpy = jasmine.createSpy('fetch success');
 
           Backbone.fetchCache._cache[model.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000),
+            expires: (new Date()).getTime() + (5 * 60 * 1000),
             success: successSpy
           };
-          promise = model.fetch({ cache: true });
+          promise = model.fetch({
+            cache: true
+          });
         });
 
         it('returns an unfulfilled promise', function() {
@@ -642,16 +813,20 @@ describe('Backbone.fetchCache', function() {
       describe('with prefill: true option', function() {
         var cacheData;
 
-        beforeEach(function(){
-          cacheData = { cheese: 'pickle' };
+        beforeEach(function() {
+          cacheData = {
+            cheese: 'pickle'
+          };
           Backbone.fetchCache._cache[model.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
         });
 
         it('sets cache data and then makes an xhr request', function() {
-          waitsFor(promiseNotified(model.fetch({ prefill: true })));
+          waitsFor(promiseNotified(model.fetch({
+            prefill: true
+          })));
 
           runs(function() {
             expect(model.toJSON()).toEqual(cacheData);
@@ -668,7 +843,7 @@ describe('Backbone.fetchCache', function() {
 
         it('calls the prefillSuccess and success callbacks in order', function() {
           var prefillSuccess = jasmine.createSpy('prefillSuccess'),
-              success = jasmine.createSpy('success');
+            success = jasmine.createSpy('success');
 
           var promise = model.fetch({
             prefill: true,
@@ -692,9 +867,9 @@ describe('Backbone.fetchCache', function() {
 
         it('triggers sync on prefill success and success', function() {
           var prefillSuccess = jasmine.createSpy('prefillSuccess'),
-              success = jasmine.createSpy('success'),
-              sync = jasmine.createSpy('sync'),
-              cachesync = jasmine.createSpy('cachesync');
+            success = jasmine.createSpy('success'),
+            sync = jasmine.createSpy('sync'),
+            cachesync = jasmine.createSpy('cachesync');
 
           model.bind('sync', sync);
           model.bind('cachesync', cachesync);
@@ -729,7 +904,9 @@ describe('Backbone.fetchCache', function() {
 
         it('triggers progress on the promise on cache hit', function() {
           var progress = jasmine.createSpy('progress');
-          var promise = model.fetch({ prefill: true }).progress(progress);
+          var promise = model.fetch({
+            prefill: true
+          }).progress(progress);
 
           waitsFor(promiseNotified(promise));
 
@@ -740,7 +917,9 @@ describe('Backbone.fetchCache', function() {
 
         it('fulfills the promise on AJAX success', function() {
           var success = jasmine.createSpy('success');
-          model.fetch({ prefill: true }).done(success);
+          model.fetch({
+            prefill: true
+          }).done(success);
 
           server.respond();
 
@@ -753,7 +932,9 @@ describe('Backbone.fetchCache', function() {
         var cacheData;
 
         beforeEach(function() {
-          cacheData = { cheese: 'pickle' };
+          cacheData = {
+            cheese: 'pickle'
+          };
         });
 
         it('returns value if cached value is neither expired nor prefill expired', function() {
@@ -873,38 +1054,45 @@ describe('Backbone.fetchCache', function() {
         it('resolves synchronously', function() {
           Backbone.fetchCache._cache[model.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
 
-          model.fetch({ cache: true, async: false });
+          model.fetch({
+            cache: true,
+            async: false
+          });
           expect(model.toJSON()).toEqual(cacheData);
         });
       });
 
-      describe('with caching disabled', function(){
-        beforeEach(function(){
+      describe('with caching disabled', function() {
+        beforeEach(function() {
           Backbone.fetchCache.enabled = false;
         });
 
-        afterEach(function(){
+        afterEach(function() {
           Backbone.fetchCache.enabled = true;
         });
 
-        it("doesn't set cache", function(){
+        it("doesn't set cache", function() {
           var cacheKey = Backbone.fetchCache.getCacheKey(model);
-          model.fetch({ cache: true });
+          model.fetch({
+            cache: true
+          });
           server.respond();
           expect(Backbone.fetchCache._cache[cacheKey])
             .toBeUndefined();
         });
 
-        it("doesn't use cache", function(){
+        it("doesn't use cache", function() {
           Backbone.fetchCache._cache[model.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
 
-          waitsFor(promiseComplete(model.fetch({cache: true})));
+          waitsFor(promiseComplete(model.fetch({
+            cache: true
+          })));
           server.respond();
 
           runs(function() {
@@ -916,12 +1104,14 @@ describe('Backbone.fetchCache', function() {
     });
 
     describe('#sync', function() {
-      describe('using model instance url', function () {
+      describe('using model instance url', function() {
         var cacheData;
 
         beforeEach(function() {
           var cache = {};
-          cacheData = { some: 'data' };
+          cacheData = {
+            some: 'data'
+          };
           cache[model.url] = cacheData;
           localStorage.setItem('backboneCache', JSON.stringify(cache));
           Backbone.fetchCache.getLocalStorage();
@@ -957,9 +1147,13 @@ describe('Backbone.fetchCache', function() {
         var optionsGiven;
 
         beforeEach(function() {
-          optionsGiven = { 'url' : '/given-url' };
+          optionsGiven = {
+            'url': '/given-url'
+          };
           var cache = {};
-          cacheData = { some: 'data' };
+          cacheData = {
+            some: 'data'
+          };
           cache[optionsGiven.url] = cacheData;
           localStorage.setItem('backboneCache', JSON.stringify(cache));
           Backbone.fetchCache.getLocalStorage();
@@ -1005,7 +1199,9 @@ describe('Backbone.fetchCache', function() {
         beforeEach(function() {
           var cache = {};
           model.collection = collection;
-          cache[Backbone.fetchCache.getCacheKey(collection)] = [{ some: 'data' }];
+          cache[Backbone.fetchCache.getCacheKey(collection)] = [{
+            some: 'data'
+          }];
           localStorage.setItem('backboneCache', JSON.stringify(cache));
           Backbone.fetchCache.getLocalStorage();
         });
@@ -1024,7 +1220,11 @@ describe('Backbone.fetchCache', function() {
       var cacheData;
 
       beforeEach(function() {
-        cacheData = [{ cheese: 'pickle' }, { salt: 'vinegar' }];
+        cacheData = [{
+          cheese: 'pickle'
+        }, {
+          salt: 'vinegar'
+        }];
       });
 
       it('returns an unfulfilled promise', function() {
@@ -1034,14 +1234,18 @@ describe('Backbone.fetchCache', function() {
       });
 
       it('saves returned attributes to the cache', function() {
-        collection.fetch({ cache: true });
+        collection.fetch({
+          cache: true
+        });
         server.respond();
         expect(Backbone.fetchCache._cache[collection.url].value)
           .toEqual(collection.toJSON());
       });
 
       it('passes the instance and options through to setCache', function() {
-        var opts = { banana: 'bread' };
+        var opts = {
+          banana: 'bread'
+        };
         spyOn(Backbone.fetchCache, 'setCache');
 
         collection.fetch(opts);
@@ -1054,7 +1258,7 @@ describe('Backbone.fetchCache', function() {
       it('sets data cache data if cache: true is set', function() {
         Backbone.fetchCache._cache[collection.url] = {
           value: cacheData,
-          expires: (new Date()).getTime() + (5* 60 * 1000)
+          expires: (new Date()).getTime() + (5 * 60 * 1000)
         };
 
         waitsFor(promiseComplete(collection.fetch({
@@ -1069,7 +1273,7 @@ describe('Backbone.fetchCache', function() {
       it('does not set cache data if cache: true is not set', function() {
         Backbone.fetchCache._cache[collection.url] = {
           value: cacheData,
-          expires: (new Date()).getTime() + (5* 60 * 1000)
+          expires: (new Date()).getTime() + (5 * 60 * 1000)
         };
 
         collection.fetch();
@@ -1082,7 +1286,7 @@ describe('Backbone.fetchCache', function() {
       it('does not set cache data if the cache item is stale', function() {
         Backbone.fetchCache._cache[collection.url] = {
           value: cacheData,
-          expires: (new Date()).getTime() - (5* 60 * 1000)
+          expires: (new Date()).getTime() - (5 * 60 * 1000)
         };
 
         collection.fetch();
@@ -1123,7 +1327,9 @@ describe('Backbone.fetchCache', function() {
 
         it('calls the error callback', function() {
           var spy = jasmine.createSpy('error');
-          var promise = errorCollection.fetch({ error: spy });
+          var promise = errorCollection.fetch({
+            error: spy
+          });
 
           waitsFor(promiseComplete(promise));
           server.respond();
@@ -1137,18 +1343,23 @@ describe('Backbone.fetchCache', function() {
 
       describe('on cache hit', function() {
         it('returns an unfulfilled promise', function() {
-          var promise = collection.fetch({ cache: true });
+          var promise = collection.fetch({
+            cache: true
+          });
           expect(promise).toBeAPromise();
           expect(promise).toBeUnresolved();
         });
 
         it('calls set according to options', function() {
-          var options = { cache: true, remove: false };
+          var options = {
+            cache: true,
+            remove: false
+          };
 
           spyOn(collection, 'set');
           Backbone.fetchCache._cache[collection.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
 
           waitsFor(promiseComplete(collection.fetch(options)));
@@ -1159,12 +1370,15 @@ describe('Backbone.fetchCache', function() {
         });
 
         it('calls reset according to options', function() {
-          var options = { cache: true, reset: true };
+          var options = {
+            cache: true,
+            reset: true
+          };
 
           spyOn(collection, 'reset');
           Backbone.fetchCache._cache[collection.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
 
           waitsFor(promiseComplete(collection.fetch(options)));
@@ -1179,10 +1393,12 @@ describe('Backbone.fetchCache', function() {
 
           Backbone.fetchCache._cache[collection.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
 
-          var promise = collection.fetch({ cache: true }).done(spy);
+          var promise = collection.fetch({
+            cache: true
+          }).done(spy);
 
           waitsFor(promiseComplete(promise));
           runs(function() {
@@ -1199,7 +1415,7 @@ describe('Backbone.fetchCache', function() {
 
           Backbone.fetchCache._cache[collection.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
 
           waitsFor(promiseComplete(collection.fetch(options)));
@@ -1211,15 +1427,17 @@ describe('Backbone.fetchCache', function() {
       });
 
       describe('with prefill: true option', function() {
-        beforeEach(function(){
+        beforeEach(function() {
           Backbone.fetchCache._cache[collection.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() + (5* 60 * 1000)
+            expires: (new Date()).getTime() + (5 * 60 * 1000)
           };
         });
 
         it('sets cache data and makes an xhr request', function() {
-          waitsFor(promiseNotified(collection.fetch({ prefill: true })));
+          waitsFor(promiseNotified(collection.fetch({
+            prefill: true
+          })));
 
           runs(function() {
             expect(collection.toJSON()).toEqual(cacheData);
@@ -1232,7 +1450,7 @@ describe('Backbone.fetchCache', function() {
 
         it('calls the prefillSuccess and success callbacks in order', function() {
           var prefillSuccess = jasmine.createSpy('prefillSuccess'),
-              success = jasmine.createSpy('success');
+            success = jasmine.createSpy('success');
 
           waitsFor(promiseNotified(collection.fetch({
             prefill: true,
@@ -1253,9 +1471,9 @@ describe('Backbone.fetchCache', function() {
 
         it('triggers sync on prefill success and success', function() {
           var prefillSuccess = jasmine.createSpy('prefillSuccess'),
-              success = jasmine.createSpy('success'),
-              sync = jasmine.createSpy('sync'),
-              cachesync = jasmine.createSpy('cachesync');
+            success = jasmine.createSpy('success'),
+            sync = jasmine.createSpy('sync'),
+            cachesync = jasmine.createSpy('cachesync');
 
           collection.bind('sync', sync);
           collection.bind('cachesync', cachesync);
@@ -1288,7 +1506,9 @@ describe('Backbone.fetchCache', function() {
 
         it('triggers progress on the promise on cache hit', function() {
           var progress = jasmine.createSpy('progeress');
-          var promise = collection.fetch({ prefill: true }).progress(progress);
+          var promise = collection.fetch({
+            prefill: true
+          }).progress(progress);
 
           waitsFor(promiseNotified(promise));
 
@@ -1299,7 +1519,9 @@ describe('Backbone.fetchCache', function() {
 
         it('fulfills the promise on AJAX success', function() {
           var success = jasmine.createSpy('success');
-          collection.fetch({ prefill: true }).done(success);
+          collection.fetch({
+            prefill: true
+          }).done(success);
           server.respond();
 
           expect(success.calls[0].args[0]).toEqual(collection);
@@ -1311,7 +1533,9 @@ describe('Backbone.fetchCache', function() {
         var cacheData;
 
         beforeEach(function() {
-          cacheData = [ { cheese: 'pickle' } ];
+          cacheData = [{
+            cheese: 'pickle'
+          }];
         });
 
         it('returns value if cached value is neither expired nor prefill expired', function() {
@@ -1427,29 +1651,33 @@ describe('Backbone.fetchCache', function() {
         });
       });
 
-      describe('with caching disabled', function(){
-        beforeEach(function(){
+      describe('with caching disabled', function() {
+        beforeEach(function() {
           Backbone.fetchCache.enabled = false;
         });
 
-        afterEach(function(){
+        afterEach(function() {
           Backbone.fetchCache.enabled = true;
         });
 
-        it("doesn't set cache", function(){
-          collection.fetch({ cache: true });
+        it("doesn't set cache", function() {
+          collection.fetch({
+            cache: true
+          });
           server.respond();
           expect(Backbone.fetchCache._cache[collection.url])
             .toBeUndefined();
         });
 
-        it("doesn't use cache", function(){
+        it("doesn't use cache", function() {
           Backbone.fetchCache._cache[collection.url] = {
             value: cacheData,
-            expires: (new Date()).getTime() - (5* 60 * 1000)
+            expires: (new Date()).getTime() - (5 * 60 * 1000)
           };
 
-          collection.fetch({cache: true});
+          collection.fetch({
+            cache: true
+          });
           server.respond();
 
           expect(collection.toJSON()).not.toEqual(cacheData);
@@ -1471,8 +1699,18 @@ describe('Backbone.fetchCache', function() {
 
     it('set localStorage', function() {
       var cache = Backbone.fetchCache._cache = {
-        '/url1': { expires: false, value: { bacon: 'sandwich' } },
-        '/url2': { expires: false, value: { egg: 'roll' } }
+        '/url1': {
+          expires: false,
+          value: {
+            bacon: 'sandwich'
+          }
+        },
+        '/url2': {
+          expires: false,
+          value: {
+            egg: 'roll'
+          }
+        }
       };
       Backbone.fetchCache.setLocalStorage();
       expect(localStorage.getItem('backboneCache_user1')).toEqual(JSON.stringify(cache));
@@ -1480,8 +1718,18 @@ describe('Backbone.fetchCache', function() {
 
     it('get localStorage', function() {
       var cache = {
-        '/url1': { expires: false, value: { bacon: 'sandwich' } },
-        '/url2': { expires: false, value: { egg: 'roll' } }
+        '/url1': {
+          expires: false,
+          value: {
+            bacon: 'sandwich'
+          }
+        },
+        '/url2': {
+          expires: false,
+          value: {
+            egg: 'roll'
+          }
+        }
       };
       localStorage.setItem('backboneCache_user1', JSON.stringify(cache));
       Backbone.fetchCache.getLocalStorage();
@@ -1493,8 +1741,18 @@ describe('Backbone.fetchCache', function() {
         return 'backboneCache_user2';
       };
       var cache = Backbone.fetchCache._cache = {
-        '/url1': { expires: true, value: { vegetables: 'tomato' } },
-        '/url2': { expires: true, value: { egg: 'roll' } }
+        '/url1': {
+          expires: true,
+          value: {
+            vegetables: 'tomato'
+          }
+        },
+        '/url2': {
+          expires: true,
+          value: {
+            egg: 'roll'
+          }
+        }
       };
       localStorage.setItem('backboneCache_user1', '');
       Backbone.fetchCache.setLocalStorage();
