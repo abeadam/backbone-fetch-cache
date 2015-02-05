@@ -129,7 +129,7 @@
       onExpire = (function() {
         setTimeout(function() {
           instance.trigger('cacheexpired', instance, attrs, opts);
-        }, expires);
+        }, (opts.expires || 5 * 60) * 1000);
       }());
     }
 
@@ -138,7 +138,7 @@
       onPrefillExpire = (function() {
         setTimeout(function() {
           instance.trigger('cacheprefillexpired', instance, attrs, opts);
-        }, prefillExpires);
+        }, (opts.prefillExpires || 5 * 60) * 1000);
       }());
     }
 
