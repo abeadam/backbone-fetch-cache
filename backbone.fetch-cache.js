@@ -263,9 +263,9 @@
 
     if (data) {
       expired = data.expires;
-      expired = expired && data.expires < (new Date()).getTime();
+      expired = expired && data.expires <= (new Date()).getTime();
       prefillExpired = data.prefillExpires;
-      prefillExpired = prefillExpired && data.prefillExpires < (new Date()).getTime();
+      prefillExpired = prefillExpired && data.prefillExpires <= (new Date()).getTime();
       attributes = data.value;
     }
 
@@ -388,9 +388,9 @@
 
     if (data) {
       expired = data.expires;
-      expired = expired && data.expires < (new Date()).getTime();
+      expired = expired && data.expires <= (new Date()).getTime();
       prefillExpired = data.prefillExpires;
-      prefillExpired = prefillExpired && data.prefillExpires < (new Date()).getTime();
+      prefillExpired = prefillExpired && data.prefillExpires <= (new Date()).getTime();
       attributes = data.value;
     }
 
