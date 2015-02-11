@@ -250,14 +250,14 @@
 
       // Notify progress if we're still waiting for an AJAX call to happen...
       if (isPrefilling()) {
-        deferred.notify.apply(deferred, resolveValues);
+        deferred.notify.apply(self, resolveValues);
       }
       // ...finish and return if we're not
       else {
         if (_.isFunction(opts.success)) {
           opts.success(self, attributes, opts);
         }
-        deferred.resolve.apply(deferred, resolveValues);
+        deferred.resolve.apply(self, resolveValues);
       }
     }
 
@@ -375,14 +375,14 @@
 
       // Notify progress if we're still waiting for an AJAX call to happen...
       if (isPrefilling()) {
-        deferred.notify.apply(deferred, resolveValues);
+        deferred.notify.apply(self, resolveValues);
       }
       // ...finish and return if we're not
       else {
         if (_.isFunction(opts.success)) {
           opts.success(self, attributes, opts);
         }
-        deferred.resolve.apply(deferred, resolveValues);
+        deferred.resolve.apply(self, resolveValues);
       }
     }
 
