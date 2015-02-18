@@ -163,6 +163,31 @@ By default the cache is persisted in localStorage (if available). Set `Backbone.
 Backbone.fetchCache.localStorage = false;
 ```
 
+### Prefetching
+By default no prefetching is done of the data. Call `Backbone.fetch.enablePrefetch()` to enable this:
+
+```js
+Backbone.fetchCache.enablePrefetch();
+```
+
+#### format request on storing it
+By default no formating is done on storing prefetch requests, to format it set the `Backbone.fetch.prefetchStoreProcessor` to return process request arguments
+
+```js
+Backbone.fetchCache.prefetchStoreProcessor = function() {
+  ...
+}
+````
+
+#### format request on retrieving request before fetching it
+By default no formating is done on retrieving requests, to format it set the `Backbone.fetch.prefetchRetrieveProcessor` to return arguments that will be fetched
+
+```js
+Backbone.fetchCache.prefetchRetrieveProcessor = function () {
+  ...
+}
+````
+
 ### Promise Parameters
 By default the first parameter to the promise is the instance initiating the fetch. Set `Backone.fetchCache.selfParameter = false` to not include the instance as first parameter.
 ```js

@@ -45,6 +45,17 @@
   // Global flag to enable/disable caching
   Backbone.fetchCache.enabled = true;
   Backbone.fetchCache.selfParameter = true;
+  Backbone.fetchCache.prefetch = false;
+  Backbone.fetchCache._prerequests = [];
+
+  Backbone.fetchCache.enablePrefetch = function() {
+    Backbone.fetchCache.prefetch = true;
+    Backbone.fetchCache.getPrefetchRequests();
+  };
+
+  Backbone.fetchCache.disablePrefetch = function() {
+    Backbone.fetchCache.prefetch = false;
+  };
 
   Backbone.fetchCache.priorityFn = function(a, b) {
     if (!a || !a.expires || !b || !b.expires) {
@@ -52,6 +63,16 @@
     }
 
     return a.expires - b.expires;
+  };
+
+  // process request before storing it for prefetching
+  Backbone.fetchCache.prefetchStoreProcessor = function(element) {
+    return element;
+  };
+
+  // process request on retrieval for prefetching 
+  Backbone.fetchCache.prefetchRetrieveProcessor = function(element) {
+    return element;
   };
 
   Backbone.fetchCache._prioritize = function() {
@@ -68,6 +89,10 @@
 
   Backbone.fetchCache.getLocalStorageKey = function() {
     return 'backboneCache';
+  };
+
+  Backbone.fetchCache.getPrefetchStorageKey = function() {
+    return 'backboneCachePrefetch';
   };
 
   if (typeof Backbone.fetchCache.localStorage === 'undefined') {
@@ -92,10 +117,13 @@
     }
     if (opts && opts.data) {
       if (typeof opts.data === 'string') {
-        return key + '?' + opts.data;
+        return key + '?' + opts.data + opts.__needProcessing ? '__needProcessing' : '';
       } else {
-        return key + '?' + $.param(opts.data);
+        return key + '?' + $.param(opts.data) + opts.__needProcessing ? '__needProcessing' : '';
       }
+    }
+    if (Backbone.fetchCache.prefetch && opts.__needProcessing) {
+      key += '__needProcessing';
     }
     return key;
   }
@@ -152,6 +180,39 @@
     };
 
     Backbone.fetchCache.setLocalStorage();
+    if (!opts.__needProcessing) {
+      saveToPrefetch(instance, opts);
+    }
+  }
+
+  function saveToPrefetch(instance, opts) {
+    var data = {
+        type: instance instanceof Backbone.Model ? 'Model' : 'Collection',
+        saveTime: (new Date()).getTime(),
+        opts: _.extend({
+          __needProcessing: true
+        }, instance.url ? {
+          url: _.isFunction(instance.url) ? instance.url() : instance.url
+        } : {}, opts),
+      },
+      removeIfExists = function(requestInfo) {
+        var data = Backbone.fetchCache.prefetchStoreProcessor(requestInfo),
+          location = -1;
+        _.each(Backbone.fetchCache._prerequests, function(value, key) {
+          if (requestInfo.opts.url === value.opts.url &&
+            requestInfo.opts.data === value.opts.data &&
+            requestInfo.type === requestInfo.type) {
+            location = key;
+          }
+        });
+        if (location > -1) {
+          Backbone.fetchCache._prerequests.splice(location, 1);
+        }
+
+      };
+    removeIfExists(data);
+    Backbone.fetchCache._prerequests.push(data);
+    Backbone.fetchCache.setPrefetchRequests();
   }
 
   function getCache(key, opts) {
@@ -194,12 +255,48 @@
     }
   }
 
+  function setPrefetchRequests() {
+    if (!supportLocalStorage || !Backbone.fetchCache.localStorage || !Backbone.fetchCache.prefetch) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(Backbone.fetchCache.getPrefetchStorageKey(), JSON.stringify(Backbone.fetchCache._prerequests));
+    } catch (err) {
+      var code = err.code || err.number || err.message;
+      if (code === 22 || code === 1014) {
+        // for now just deleting request data if it gets full
+        this._deleteCacheWithPriority();
+        Backbone.fetchCache.setPrefetchRequests();
+      } else {
+        throw (err);
+      }
+    }
+  }
+
   function getLocalStorage() {
     if (!supportLocalStorage || !Backbone.fetchCache.localStorage) {
       return;
     }
     var json = localStorage.getItem(Backbone.fetchCache.getLocalStorageKey()) || '{}';
     Backbone.fetchCache._cache = JSON.parse(json);
+  }
+
+  function getPrefetchRequests() {
+    if (!supportLocalStorage || !Backbone.fetchCache.localStorage || !Backbone.fetchCache.prefetch) {
+      return;
+    }
+    var json = localStorage.getItem(Backbone.fetchCache.getPrefetchStorageKey()),
+      requests = JSON.parse(json);
+    if (_.isArray(requests)) {
+      _.each(requests, function(element) {
+        var processedElement = Backbone.fetchCache.prefetchRetrieveProcessor(element);
+        (new Backbone[processedElement.type]()).fetch(element.opts);
+      });
+    }
+    // empty the prefetch storage after fetching the requests
+    delete localStorage[Backbone.fetchCache.getPrefetchStorageKey()];
+    Backbone.fetchCache._prerequests = [];
   }
 
   function nextTick(fn) {
@@ -296,6 +393,7 @@
     if (Backbone.fetchCache.selfParameter) {
       resolveArgs.push(this);
     }
+
     // resolve the returned promise when the AJAX call completes
     jqXHR.done(function(data) {
       deferred.resolve.apply(self, resolveArgs.concat([data, self]));
@@ -348,15 +446,34 @@
     opts = _.defaults(opts || {}, {
       parse: true
     });
-    var key = Backbone.fetchCache.getCacheKey(this, opts),
-      data = getCache(key),
+    var self = this,
       expired = false,
       prefillExpired = false,
       attributes = false,
       deferred = new $.Deferred(),
-      self = this;
-    deferred.success = jqXHR.success;
-    deferred.error = jqXHR.fail;
+      getData = function(opts) {
+        var key = Backbone.fetchCache.getCacheKey(this, opts),
+          data = getCache(key);
+        return data;
+      },
+      data = getData(opts),
+      process = false;
+
+    if (!data) {
+      data = getData(_.extend({
+        __needProcessing: true
+      }, opts));
+      if (data) {
+        process = true;
+        delete Backbone.fetchCache._cache[Backbone.fetchCache.getCacheKey(this, _.extend({
+          __needProcessing: true
+        }, opts))];
+      }
+    }
+
+
+    deferred.success = deferred.done;
+    deferred.error = deferred.fail;
 
     function isPrefilling() {
       return opts.prefill && (!opts.prefillExpires || prefillExpired);
@@ -391,7 +508,12 @@
       expired = expired && data.expires <= (new Date()).getTime();
       prefillExpired = data.prefillExpires;
       prefillExpired = prefillExpired && data.prefillExpires <= (new Date()).getTime();
-      attributes = data.value;
+      if (process) {
+        attributes = self.parse(data.value);
+        Backbone.fetchCache.setCache(self, opts, attributes);
+      } else {
+        attributes = data.value;
+      }
     }
 
     if (!expired && (opts.cache || opts.prefill) && attributes) {
@@ -422,6 +544,7 @@
     if (Backbone.fetchCache.selfParameter) {
       resolveArgs.push(this);
     }
+
     // resolve the returned promise when the AJAX call completes
     jqXHR.done(function(data) {
       deferred.resolve.apply(self, resolveArgs.concat([data, self]));
@@ -439,6 +562,9 @@
   // Prime the cache from localStorage on initialization
   getLocalStorage();
 
+  // Start Prefetching
+  getPrefetchRequests();
+
   // Exports
 
   Backbone.fetchCache._superMethods = superMethods;
@@ -449,6 +575,8 @@
   Backbone.fetchCache.clearItem = clearItem;
   Backbone.fetchCache.setLocalStorage = setLocalStorage;
   Backbone.fetchCache.getLocalStorage = getLocalStorage;
+  Backbone.fetchCache.setPrefetchRequests = setPrefetchRequests;
+  Backbone.fetchCache.getPrefetchRequests = getPrefetchRequests;
 
   return Backbone;
 }));
