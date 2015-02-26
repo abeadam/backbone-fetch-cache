@@ -38,7 +38,9 @@
         }
       }
       return supported;
-    })();
+    })(),
+    localStorageContent = {},
+    supportIndexDB = !!window.indexedDB;
 
   Backbone.fetchCache = (Backbone.fetchCache || {});
   Backbone.fetchCache._cache = (Backbone.fetchCache._cache || {});
@@ -46,7 +48,9 @@
   Backbone.fetchCache.enabled = true;
   Backbone.fetchCache.selfParameter = true;
   Backbone.fetchCache.prefetch = false;
-  Backbone.fetchCache._prerequests = [];
+
+  Backbone.fetchCache.useIndexDB = false;
+  Backbone.fetchCache._prerequests = {};
 
   Backbone.fetchCache.enablePrefetch = function() {
     Backbone.fetchCache.prefetch = true;
@@ -65,6 +69,11 @@
     return a.expires - b.expires;
   };
 
+  Backbone.fetchCache._prioritize = function(data) {
+    var sorted = _.values(data).sort(this.priorityFn);
+    var index = _.indexOf(_.values(data), sorted[0]);
+    return _.keys(data)[index];
+  };
   // process request before storing it for prefetching
   Backbone.fetchCache.prefetchStoreProcessor = function(element) {
     return element;
@@ -75,16 +84,12 @@
     return element;
   };
 
-  Backbone.fetchCache._prioritize = function() {
-    var sorted = _.values(this._cache).sort(this.priorityFn);
-    var index = _.indexOf(_.values(this._cache), sorted[0]);
-    return _.keys(this._cache)[index];
-  };
 
-  Backbone.fetchCache._deleteCacheWithPriority = function() {
-    Backbone.fetchCache._cache[this._prioritize()] = null;
-    delete Backbone.fetchCache._cache[this._prioritize()];
-    Backbone.fetchCache.setLocalStorage();
+  Backbone.fetchCache._deleteCacheWithPriority = function(data) {
+    var key = this._prioritize(data);
+    data[key] = null;
+    delete data[key];
+    Backbone.fetchCache.setLocalStorage(data);
   };
 
   Backbone.fetchCache.getLocalStorageKey = function() {
@@ -117,13 +122,10 @@
     }
     if (opts && opts.data) {
       if (typeof opts.data === 'string') {
-        return key + '?' + opts.data + opts.__needProcessing ? '__needProcessing' : '';
+        return key + '?' + opts.data;
       } else {
-        return key + '?' + $.param(opts.data) + opts.__needProcessing ? '__needProcessing' : '';
+        return key + '?' + $.param(opts.data);
       }
-    }
-    if (Backbone.fetchCache.prefetch && opts.__needProcessing) {
-      key += '__needProcessing';
     }
     return key;
   }
@@ -135,7 +137,8 @@
       onExpire = null,
       lastSync = (opts.lastSync || (new Date()).getTime()),
       prefillExpires = false,
-      onPrefillExpire = null;
+      onPrefillExpire = null,
+      dataToSave;
 
     // Need url to use as cache key so return if we can't get it
     if (!key) {
@@ -170,7 +173,7 @@
       }());
     }
 
-    Backbone.fetchCache._cache[key] = {
+    dataToSave = {
       expires: expires,
       onExpire: onExpire,
       lastSync: lastSync,
@@ -179,8 +182,11 @@
       value: attrs
     };
 
-    Backbone.fetchCache.setLocalStorage();
-    if (!opts.__needProcessing) {
+    Backbone.fetchCache._cache[key] = dataToSave;
+    localStorageContent[key] = dataToSave;
+
+    Backbone.fetchCache.setLocalStorage(localStorageContent);
+    if (Backbone.fetchCache.prefetch) {
       saveToPrefetch(instance, opts);
     }
   }
@@ -189,29 +195,17 @@
     var data = {
         type: instance instanceof Backbone.Model ? 'Model' : 'Collection',
         saveTime: (new Date()).getTime(),
-        opts: _.extend({
-          __needProcessing: true
-        }, instance.url ? {
+        opts: _.extend({}, instance.url && !opts.url ? {
           url: _.isFunction(instance.url) ? instance.url() : instance.url
-        } : {}, opts),
+        } : {}, opts)
       },
-      removeIfExists = function(requestInfo) {
-        var data = Backbone.fetchCache.prefetchStoreProcessor(requestInfo),
-          location = -1;
-        _.each(Backbone.fetchCache._prerequests, function(value, key) {
-          if (requestInfo.opts.url === value.opts.url &&
-            requestInfo.opts.data === value.opts.data &&
-            requestInfo.type === requestInfo.type) {
-            location = key;
-          }
-        });
-        if (location > -1) {
-          Backbone.fetchCache._prerequests.splice(location, 1);
-        }
+      key = Backbone.fetchCache.getCacheKey(instance, opts);
 
-      };
-    removeIfExists(data);
-    Backbone.fetchCache._prerequests.push(data);
+    delete data.opts.beforeSend;
+    delete data.opts.success;
+    delete data.opts.fail;
+    delete data.opts.error;
+    Backbone.fetchCache._prerequests[key] = Backbone.fetchCache.prefetchStoreProcessor(data);
     Backbone.fetchCache.setPrefetchRequests();
   }
 
@@ -236,67 +230,221 @@
       key = getCacheKey(key, opts);
     }
     delete Backbone.fetchCache._cache[key];
-    Backbone.fetchCache.setLocalStorage();
+    if (localStorageContent[key]) {
+      delete localStorageContent[key];
+      Backbone.fetchCache.setLocalStorage(localStorageContent);
+    }
   }
 
-  function setLocalStorage() {
+  function setLocalStorage(data) {
     if (!supportLocalStorage || !Backbone.fetchCache.localStorage) {
       return;
     }
     try {
-      localStorage.setItem(Backbone.fetchCache.getLocalStorageKey(), JSON.stringify(Backbone.fetchCache._cache));
+      localStorage.setItem(Backbone.fetchCache.getLocalStorageKey(), JSON.stringify(data));
     } catch (err) {
       var code = err.code || err.number || err.message;
       if (code === 22 || code === 1014) {
-        this._deleteCacheWithPriority();
+        this._deleteCacheWithPriority(data);
       } else {
         throw (err);
       }
     }
   }
 
-  function setPrefetchRequests() {
-    if (!supportLocalStorage || !Backbone.fetchCache.localStorage || !Backbone.fetchCache.prefetch) {
-      return;
+  function _indexDBHelper() {
+    var request,
+      db,
+      promise = $.Deferred();
+    if (!supportIndexDB || !Backbone.fetchCache.useIndexDB) {
+      promise.reject('not supported');
+    }
+
+    function setDB(event) {
+      var db = event.target.result;
+      promise.resolve(db);
     }
 
     try {
-      localStorage.setItem(Backbone.fetchCache.getPrefetchStorageKey(), JSON.stringify(Backbone.fetchCache._prerequests));
-    } catch (err) {
-      var code = err.code || err.number || err.message;
-      if (code === 22 || code === 1014) {
-        // for now just deleting request data if it gets full
-        this._deleteCacheWithPriority();
-        Backbone.fetchCache.setPrefetchRequests();
-      } else {
-        throw (err);
+      request = window.indexedDB.open('fetchCache', 1);
+      request.onsuccess = function(event) {
+        db = setDB(event);
+      };
+      request.onfailure = function(event) {
+        promise.reject('failed with error code: ' + request.errorCode);
+      };
+      request.onupgradeneeded = function(event) {
+        var db = event.target.result,
+          objectStore;
+        objectStore = db.createObjectStore('fetchCacheHistory');
+        objectStore.transaction.oncomplete = function(event) {
+          promise.resolve(db);
+        };
+      };
+    } catch (e) {
+      promise.reject(e.message);
+    }
+    return promise;
+  }
+
+  function saveToIndexedDB(success, failure) {
+    var promise = _indexDBHelper(),
+      setValuesToDB = function(db) {
+        var transaction = db.transaction(['fetchCacheHistory'], 'readwrite'),
+          objectStore = transaction.objectStore('fetchCacheHistory'),
+          req;
+        transaction.oncomplete = success;
+        // first lets clear what's inside the store
+        req = objectStore.clear();
+        req.onsuccess = function() {
+          try {
+            objectStore.add({
+              history: _.clone(Backbone.fetchCache._prerequests)
+            }, Backbone.fetchCache.getPrefetchStorageKey());
+          } catch (e) {
+
+          }
+
+        };
+      };
+    promise.done(function(db) {
+      db.onerror = function(event) {
+        failure('failed with error code: ' + event.target.errorCode);
+      };
+      setValuesToDB(db);
+    });
+    promise.fail(function(arg) {
+      failure(arg);
+    });
+  }
+
+  function loadFromIndexedDB(success, failure) {
+    var promise = _indexDBHelper(),
+      getValueFromDB = function(db) {
+        var transaction = db.transaction(['fetchCacheHistory'], 'readwrite'),
+          objectStore = transaction.objectStore('fetchCacheHistory'),
+          prefetchObject = {};
+        objectStore.openCursor().onsuccess = function(event) {
+          var cursor = event.target.result;
+          if (cursor) {
+            prefetchObject = cursor.value.history;
+            cursor['continue']();
+          } else {
+            success(prefetchObject);
+          }
+        };
+      };
+    promise.done(function(db) {
+      db.onerror = function(event) {
+        promise.reject('failed with error code: ' + event.target.errorCode);
+      };
+      getValueFromDB(db);
+    });
+    promise.fail(function(arg) {
+      failure(arg);
+    });
+  }
+
+  function setPrefetchRequests() {
+    var indexFailFn = function() {
+      if (!Backbone.fetchCache.localStorage) {
+        return;
       }
+      supportIndexDB = false;
+      try {
+        localStorage.setItem(Backbone.fetchCache.getPrefetchStorageKey(), JSON.stringify(Backbone.fetchCache._prerequests));
+      } catch (err) {
+        var code = err.code || err.number || err.message;
+        if (code === 22 || code === 1014) {
+          // for now just deleting request data if it gets full
+          this._deleteCacheWithPriority();
+          Backbone.fetchCache.setPrefetchRequests();
+        } else {
+          throw (err);
+        }
+      }
+    };
+    if (!supportLocalStorage || !Backbone.fetchCache.prefetch) {
+      return;
+    }
+
+    if (supportIndexDB && Backbone.fetchCache.useIndexDB) {
+      if (!Backbone.fetchCache.indexSaveBlocked) { // already active don't send another write
+        saveToIndexedDB(function() {
+          Backbone.fetchCache.indexSaveBlocked = false;
+        }, indexFailFn);
+      }
+    } else {
+      indexFailFn();
     }
   }
 
   function getLocalStorage() {
+    var parsedJSON = {};
     if (!supportLocalStorage || !Backbone.fetchCache.localStorage) {
       return;
     }
     var json = localStorage.getItem(Backbone.fetchCache.getLocalStorageKey()) || '{}';
-    Backbone.fetchCache._cache = JSON.parse(json);
+    parsedJSON = JSON.parse(json);
+    Backbone.fetchCache._cache = parsedJSON;
+    localStorageContent = parsedJSON;
+  }
+
+  // calling fetch helper insures that we won't flood the request buffer
+  var fetchHelper = (function(argument) {
+    var currentRequests = [];
+
+    function startFetchingRequests() {
+      if (currentRequests.length > 0) {
+        if ($.active < 2) {
+          currentRequests.splice(0, 1)[0]();
+          startFetchingRequests();
+        } else {
+          setTimeout(startFetchingRequests, 2000);
+        }
+      }
+    }
+    return function(fn) {
+      currentRequests.push(fn);
+      startFetchingRequests();
+    };
+  })();
+
+  function _prefetchInitializer(requests) {
+    _.each(requests, function(element, key) {
+      var processedElement = Backbone.fetchCache.prefetchRetrieveProcessor(element);
+      Backbone.fetchCache._prerequests[key] = processedElement;
+      fetchHelper(function() {
+        var possibleResult = getCache(key);
+        if (!possibleResult || !possibleResult.data || possibleResult.data.expires > (new Date()).getTime()) {
+          (new Backbone[processedElement.type]()).fetch(element.opts);
+        }
+      });
+    });
+
+    Backbone.fetchCache._prerequests = {};
   }
 
   function getPrefetchRequests() {
-    if (!supportLocalStorage || !Backbone.fetchCache.localStorage || !Backbone.fetchCache.prefetch) {
+    var json,
+      indexFailFn = function() { // try local storage if index fails
+        if (!Backbone.fetchCache.localStorage) {
+          return;
+        }
+        json = localStorage.getItem(Backbone.fetchCache.getPrefetchStorageKey());
+        _prefetchInitializer(JSON.parse(json));
+      };
+    if (!supportLocalStorage || !Backbone.fetchCache.prefetch) {
       return;
     }
-    var json = localStorage.getItem(Backbone.fetchCache.getPrefetchStorageKey()),
-      requests = JSON.parse(json);
-    if (_.isArray(requests)) {
-      _.each(requests, function(element) {
-        var processedElement = Backbone.fetchCache.prefetchRetrieveProcessor(element);
-        (new Backbone[processedElement.type]()).fetch(element.opts);
-      });
+
+    if (supportIndexDB && Backbone.fetchCache.useIndexDB) {
+      loadFromIndexedDB(function(requests) {
+        _prefetchInitializer(requests);
+      }, indexFailFn);
+    } else {
+      indexFailFn();
     }
-    // empty the prefetch storage after fetching the requests
-    delete localStorage[Backbone.fetchCache.getPrefetchStorageKey()];
-    Backbone.fetchCache._prerequests = [];
   }
 
   function nextTick(fn) {
@@ -319,10 +467,6 @@
       attributes = false,
       deferred = new $.Deferred(),
       self = this;
-    deferred.success = deferred.done;
-    deferred.error = deferred.fail;
-
-
     deferred.success = deferred.done;
     deferred.error = deferred.fail;
 
@@ -403,7 +547,8 @@
     // Reject the promise on fail
     .fail(_.bind.apply(_, [deferred.reject].concat(resolveArgs)));
 
-    deferred.error = jqXHR.fail;
+    deferred.abort = jqXHR.abort;
+
     // return a promise which provides the same methods as a jqXHR object
     return deferred;
   };
@@ -451,29 +596,13 @@
       prefillExpired = false,
       attributes = false,
       deferred = new $.Deferred(),
-      getData = function(opts) {
-        var key = Backbone.fetchCache.getCacheKey(this, opts),
-          data = getCache(key);
-        return data;
-      },
-      data = getData(opts),
-      process = false;
-
-    if (!data) {
-      data = getData(_.extend({
-        __needProcessing: true
-      }, opts));
-      if (data) {
-        process = true;
-        delete Backbone.fetchCache._cache[Backbone.fetchCache.getCacheKey(this, _.extend({
-          __needProcessing: true
-        }, opts))];
-      }
-    }
-
+      key = Backbone.fetchCache.getCacheKey(self, opts),
+      data = getCache(key);
 
     deferred.success = deferred.done;
     deferred.error = deferred.fail;
+
+
 
     function isPrefilling() {
       return opts.prefill && (!opts.prefillExpires || prefillExpired);
@@ -508,12 +637,7 @@
       expired = expired && data.expires <= (new Date()).getTime();
       prefillExpired = data.prefillExpires;
       prefillExpired = prefillExpired && data.prefillExpires <= (new Date()).getTime();
-      if (process) {
-        attributes = self.parse(data.value);
-        Backbone.fetchCache.setCache(self, opts, attributes);
-      } else {
-        attributes = data.value;
-      }
+      attributes = data.value;
     }
 
     if (!expired && (opts.cache || opts.prefill) && attributes) {

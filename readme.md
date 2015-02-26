@@ -177,7 +177,7 @@ By default no formating is done on storing prefetch requests, to format it set t
 Backbone.fetchCache.prefetchStoreProcessor = function() {
   ...
 }
-````
+```
 
 #### format request on retrieving request before fetching it
 By default no formating is done on retrieving requests, to format it set the `Backbone.fetch.prefetchRetrieveProcessor` to return arguments that will be fetched
@@ -186,13 +186,21 @@ By default no formating is done on retrieving requests, to format it set the `Ba
 Backbone.fetchCache.prefetchRetrieveProcessor = function () {
   ...
 }
-````
+```
+
+#### use indexDB for storing the history that will be prefetched instead of localStorage
+By default the localStorge will be used to store the user history, to use indexDB if it's allowed in the browser
+
+```js
+fetchCache.useIndexDB = true;
+``` 
 
 ### Promise Parameters
 By default the first parameter to the promise is the instance initiating the fetch. Set `Backone.fetchCache.selfParameter = false` to not include the instance as first parameter.
 ```js
 Backbone.fetchCache.selfParameter = false;
 ```
+
 ### Custom cache keys
 
 By default the cache key is generated from the model's `url` property and the requests params:

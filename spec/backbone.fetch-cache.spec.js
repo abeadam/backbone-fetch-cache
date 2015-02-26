@@ -218,11 +218,13 @@ describe('Backbone.fetchCache', function() {
       });
 
       it('sets default expiry times for cache keys', function() {
+        var expectedTime = (new Date()).getTime() + (5 * 60 * 1000);
         Backbone.fetchCache.setCache(model, {
           cache: true
         }, modelResponse);
+
         expect(Backbone.fetchCache._cache[cacheKey].expires)
-          .toEqual((new Date()).getTime() + (5 * 60 * 1000));
+          .toEqual(expectedTime);
       });
 
       it('sets expiry times for cache keys', function() {
