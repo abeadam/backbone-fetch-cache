@@ -252,7 +252,7 @@
     }
   }
 
-  function _indexDBHelper() {
+  function _indexedHelper() {
     var request,
       db,
       promise = $.Deferred();
@@ -288,7 +288,7 @@
   }
 
   function saveToIndexedDB(success, failure) {
-    var promise = _indexDBHelper(),
+    var promise = _indexedHelper(),
       setValuesToDB = function(db) {
         var transaction = db.transaction(['fetchCacheHistory'], 'readwrite'),
           objectStore = transaction.objectStore('fetchCacheHistory'),
@@ -319,7 +319,7 @@
   }
 
   function loadFromIndexedDB(success, failure) {
-    var promise = _indexDBHelper(),
+    var promise = _indexedHelper(),
       getValueFromDB = function(db) {
         var transaction = db.transaction(['fetchCacheHistory'], 'readwrite'),
           objectStore = transaction.objectStore('fetchCacheHistory'),
@@ -385,7 +385,11 @@
       return;
     }
     var json = localStorage.getItem(Backbone.fetchCache.getLocalStorageKey()) || '{}';
-    parsedJSON = JSON.parse(json);
+    try {
+      parsedJSON = JSON.parse(json);
+    } catch (e) {
+      parsedJSON = {};
+    }
     Backbone.fetchCache._cache = parsedJSON;
     localStorageContent = parsedJSON;
   }
