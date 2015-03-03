@@ -39,7 +39,6 @@
       }
       return supported;
     })(),
-    localStorageContent = {},
     supportIndexDB = !!window.indexedDB;
 
   Backbone.fetchCache = (Backbone.fetchCache || {});
@@ -51,6 +50,7 @@
 
   Backbone.fetchCache.useIndexDB = false;
   Backbone.fetchCache._prerequests = {};
+  Backbone.fetchCache._localStorageContent = {};
 
   Backbone.fetchCache.enablePrefetch = function() {
     Backbone.fetchCache.prefetch = true;
@@ -70,6 +70,7 @@
   };
 
   Backbone.fetchCache._prioritize = function(data) {
+    data = data || Backbone.fetchCache._cache;
     var sorted = _.values(data).sort(this.priorityFn);
     var index = _.indexOf(_.values(data), sorted[0]);
     return _.keys(data)[index];
@@ -86,6 +87,7 @@
 
 
   Backbone.fetchCache._deleteCacheWithPriority = function(data) {
+    data = data || Backbone.fetchCache._cache;
     var key = this._prioritize(data);
     data[key] = null;
     delete data[key];
@@ -183,9 +185,9 @@
     };
 
     Backbone.fetchCache._cache[key] = dataToSave;
-    localStorageContent[key] = dataToSave;
+    Backbone.fetchCache._localStorageContent[key] = dataToSave;
 
-    Backbone.fetchCache.setLocalStorage(localStorageContent);
+    Backbone.fetchCache.setLocalStorage(Backbone.fetchCache._localStorageContent);
     if (Backbone.fetchCache.prefetch) {
       saveToPrefetch(instance, opts);
     }
@@ -230,9 +232,9 @@
       key = getCacheKey(key, opts);
     }
     delete Backbone.fetchCache._cache[key];
-    if (localStorageContent[key]) {
-      delete localStorageContent[key];
-      Backbone.fetchCache.setLocalStorage(localStorageContent);
+    if (Backbone.fetchCache._localStorageContent[key]) {
+      delete Backbone.fetchCache._localStorageContent[key];
+      Backbone.fetchCache.setLocalStorage(Backbone.fetchCache._localStorageContent);
     }
   }
 
@@ -240,12 +242,21 @@
     if (!supportLocalStorage || !Backbone.fetchCache.localStorage) {
       return;
     }
+    if (_.isEmpty(data)) {
+      if (!_.isEmpty(Backbone.fetchCache._localStorageContent)) {
+        data = Backbone.fetchCache._localStorageContent;
+      } else if (!_.isEmpty(Backbone.fetchCache._cache)) {
+        data = Backbone.fetchCache._cache;
+      }
+    }
     try {
-      localStorage.setItem(Backbone.fetchCache.getLocalStorageKey(), JSON.stringify(data));
+      if (data) {
+        localStorage.setItem(Backbone.fetchCache.getLocalStorageKey(), JSON.stringify(data));
+      }
     } catch (err) {
       var code = err.code || err.number || err.message;
       if (code === 22 || code === 1014) {
-        this._deleteCacheWithPriority(data);
+        this._deleteCacheWithPriority(Backbone.fetchCache._cache);
       } else {
         throw (err);
       }
@@ -353,7 +364,9 @@
       supportIndexDB = false;
       try {
         localStorage.setItem(Backbone.fetchCache.getPrefetchStorageKey(), JSON.stringify(Backbone.fetchCache._prerequests));
-        Backbone.trigger('prefetchSaved');
+        _.defer(function() {
+          Backbone.trigger('prefetchSaved');
+        });
       } catch (err) {
         var code = err.code || err.number || err.message;
         if (code === 22 || code === 1014) {
@@ -392,8 +405,8 @@
     } catch (e) {
       parsedJSON = {};
     }
-    Backbone.fetchCache._cache = parsedJSON;
-    localStorageContent = parsedJSON;
+    Backbone.fetchCache._cache = _.clone(parsedJSON);
+    Backbone.fetchCache._localStorageContent = _.clone(parsedJSON);
   }
 
   // calling fetch helper insures that we won't flood the request buffer

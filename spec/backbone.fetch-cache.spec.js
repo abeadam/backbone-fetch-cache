@@ -339,6 +339,23 @@ describe('Backbone.fetchCache', function() {
           monkey: 'wrench'
         }
       };
+      Backbone.fetchCache._localStorageContent = {
+        '/item/1': {
+          foo: 'bar'
+        },
+        '/item/2': {
+          beep: 'boop'
+        },
+        '/item/3': {
+          monty: 'zuma'
+        },
+        '/item/4?id=007': {
+          james: 'bond'
+        },
+        'foobarbaz': {
+          monkey: 'wrench'
+        }
+      };
     });
 
     it('deletes a single item from the cache', function() {
@@ -403,7 +420,7 @@ describe('Backbone.fetchCache', function() {
           }
         }
       };
-      Backbone.fetchCache.setLocalStorage();
+      Backbone.fetchCache.setLocalStorage(cache);
       expect(localStorage.getItem('backboneCache')).toEqual(JSON.stringify(cache));
     });
 
@@ -1714,7 +1731,7 @@ describe('Backbone.fetchCache', function() {
           }
         }
       };
-      Backbone.fetchCache.setLocalStorage();
+      Backbone.fetchCache.setLocalStorage(cache);
       expect(localStorage.getItem('backboneCache_user1')).toEqual(JSON.stringify(cache));
     });
 
@@ -1757,7 +1774,7 @@ describe('Backbone.fetchCache', function() {
         }
       };
       localStorage.setItem('backboneCache_user1', '');
-      Backbone.fetchCache.setLocalStorage();
+      Backbone.fetchCache.setLocalStorage(cache);
       expect(localStorage.getItem('backboneCache_user2')).toEqual(JSON.stringify(cache));
       expect(localStorage.getItem('backboneCache_user1')).toEqual('');
     });
