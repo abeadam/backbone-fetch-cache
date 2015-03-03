@@ -165,7 +165,8 @@ Backbone.fetchCache.localStorage = false;
 
 ### Prefetching
 By default no prefetching is done of the data. Call `Backbone.fetch.enablePrefetch()` to enable this:
-
+When Prefetch is done fetching event `prefetchLoaded` will be fired on Backbone
+When prefetch is saved to indexDB or localStorage   `prefetchSaved` will be fired on Backbone
 ```js
 Backbone.fetchCache.enablePrefetch();
 ```

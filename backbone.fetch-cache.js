@@ -353,6 +353,7 @@
       supportIndexDB = false;
       try {
         localStorage.setItem(Backbone.fetchCache.getPrefetchStorageKey(), JSON.stringify(Backbone.fetchCache._prerequests));
+        Backbone.trigger('prefetchSaved');
       } catch (err) {
         var code = err.code || err.number || err.message;
         if (code === 22 || code === 1014) {
@@ -372,6 +373,7 @@
       if (!Backbone.fetchCache.indexSaveBlocked) { // already active don't send another write
         saveToIndexedDB(function() {
           Backbone.fetchCache.indexSaveBlocked = false;
+          Backbone.trigger('prefetchSaved');
         }, indexFailFn);
       }
     } else {
@@ -406,6 +408,8 @@
         } else {
           setTimeout(startFetchingRequests, 2000);
         }
+      } else {
+        Backbone.trigger('prefetchLoaded');
       }
     }
     return function(fn) {
@@ -425,6 +429,9 @@
         }
       });
     });
+    if (!requests || !requests.length) {
+      Backbone.trigger('prefetchLoaded');
+    }
 
     Backbone.fetchCache._prerequests = {};
   }
@@ -444,7 +451,10 @@
 
     if (supportIndexDB && Backbone.fetchCache.useIndexDB) {
       loadFromIndexedDB(function(requests) {
-        _prefetchInitializer(requests);
+        if (Backbone.fetchCache.prefetch) {
+          // make sure it didn't get turned off by the time the async load is done
+          _prefetchInitializer(requests);
+        }
       }, indexFailFn);
     } else {
       indexFailFn();
