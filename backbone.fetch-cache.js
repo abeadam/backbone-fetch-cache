@@ -271,7 +271,9 @@
     } catch (err) {
       var code = err.code || err.number || err.message;
       if (code === 22 || code === 1014) {
-        this._deleteCacheWithPriority(Backbone.fetchCache._cache);
+        if (_.keys(Backbone.fetchCache._localStorageContent).length) { // if not defined, data is bigger than the local cache
+          this._deleteCacheWithPriority(Backbone.fetchCache._localStorageContent);
+        }
       } else {
         throw (err);
       }
