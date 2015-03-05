@@ -23,6 +23,7 @@
   var superMethods = {
       modelFetch: Backbone.Model.prototype.fetch,
       modelSync: Backbone.Model.prototype.sync,
+      collectionSync: Backbone.Collection.prototype.sync,
       collectionFetch: Backbone.Collection.prototype.fetch
     },
     supportLocalStorage = (function() {
@@ -51,6 +52,7 @@
   Backbone.fetchCache.useIndexDB = false;
   Backbone.fetchCache._prerequests = {};
   Backbone.fetchCache._localStorageContent = {};
+  Backbone.fetchCache.useEtags = true;
 
   Backbone.fetchCache.enablePrefetch = function() {
     Backbone.fetchCache.prefetch = true;
@@ -132,14 +134,41 @@
     return key;
   }
 
-  function setCache(instance, opts, attrs) {
+  function __setTimers(instance, opts, attrs) {
+    var timers = {
+      expires: false,
+      onExpire: null,
+      lastSync: (opts.lastSync || (new Date()).getTime()),
+      prefillExpires: false,
+      onPrefillExpire: null
+    };
+    if (opts.expires !== false) {
+      timers.expires = (new Date()).getTime() + ((opts.expires || 5 * 60) * 1000);
+      timers.onExpire = (function() {
+        setTimeout(function() {
+          instance.trigger('cacheexpired', instance, attrs, opts);
+        }, (opts.expires || 5 * 60) * 1000);
+      }());
+    }
+
+    if (opts.prefillExpires !== false) {
+      timers.prefillExpires = (new Date()).getTime() + ((opts.prefillExpires || 5 * 60) * 1000);
+      timers.onPrefillExpire = (function() {
+        setTimeout(function() {
+          instance.trigger('cacheprefillexpired', instance, attrs, opts);
+        }, (opts.prefillExpires || 5 * 60) * 1000);
+      }());
+    }
+    return timers;
+  }
+
+  function setCache(instance, opts, attrs, status, xhr) {
     opts = (opts || {});
+    if (!attrs && xhr && xhr.status === 304) {
+      return;
+    }
     var key = Backbone.fetchCache.getCacheKey(instance, opts),
-      expires = false,
-      onExpire = null,
-      lastSync = (opts.lastSync || (new Date()).getTime()),
-      prefillExpires = false,
-      onPrefillExpire = null,
+      etag,
       dataToSave;
 
     // Need url to use as cache key so return if we can't get it
@@ -157,32 +186,18 @@
       return;
     }
 
-    if (opts.expires !== false) {
-      expires = (new Date()).getTime() + ((opts.expires || 5 * 60) * 1000);
-      onExpire = (function() {
-        setTimeout(function() {
-          instance.trigger('cacheexpired', instance, attrs, opts);
-        }, (opts.expires || 5 * 60) * 1000);
-      }());
-    }
-
-    if (opts.prefillExpires !== false) {
-      prefillExpires = (new Date()).getTime() + ((opts.prefillExpires || 5 * 60) * 1000);
-      onPrefillExpire = (function() {
-        setTimeout(function() {
-          instance.trigger('cacheprefillexpired', instance, attrs, opts);
-        }, (opts.prefillExpires || 5 * 60) * 1000);
-      }());
-    }
-
     dataToSave = {
-      expires: expires,
-      onExpire: onExpire,
-      lastSync: lastSync,
-      prefillExpires: prefillExpires,
-      onPrefillExpire: onPrefillExpire,
       value: attrs
     };
+
+    _.extend(dataToSave, __setTimers(instance, opts, attrs));
+
+    if (Backbone.fetchCache.useEtags) {
+      etag = xhr && xhr.getResponseHeader('etag');
+      if (etag) {
+        dataToSave.etag = etag;
+      }
+    }
 
     Backbone.fetchCache._cache[key] = dataToSave;
     Backbone.fetchCache._localStorageContent[key] = dataToSave;
@@ -558,6 +573,15 @@
       }
     }
 
+    // Add etags
+    if (Backbone.fetchCache.useEtags) {
+      opts.ifModified = true;
+    }
+
+    self.on('resetData', function(cacheObject, opts) {
+      _.extend(cacheObject, __setTimers(self, opts, cacheObject.value));
+    });
+
     // Delegate to the actual fetch method and store the attributes in the cache
     var jqXHR = superMethods.modelFetch.apply(this, arguments),
       resolveArgs = [];
@@ -586,7 +610,7 @@
     // Only empty the cache if we're doing a create, update, patch or delete.
     // or caching is not enabled
     if (method === 'read' || !Backbone.fetchCache.enabled) {
-      return superMethods.modelSync.apply(this, arguments);
+      return superMethods.modelSync.apply(this, __etagOptionSetup(this, arguments));
     }
 
     var collection = model.collection,
@@ -606,8 +630,38 @@
       clearItem(keys[i]);
     }
 
-    return superMethods.modelSync.apply(this, arguments);
+    return superMethods.modelSync.apply(this, __etagOptionSetup(this, arguments));
   };
+
+  // we want to handle etag hits correctly
+  Backbone.Collection.prototype.sync = function(method, collection, options) {
+    return superMethods.collectionSync.apply(this, __etagOptionSetup(this, arguments));
+  };
+
+  function __etagOptionSetup(instance, args) {
+    var success,
+      options = args[2] || {},
+      key = Backbone.fetchCache.getCacheKey(instance, options);
+    if (Backbone.fetchCache.enabled && options.cache && Backbone.fetchCache.useEtags) {
+      success = options.success;
+      options.success = function(resp, status, xhr) {
+        var cacheObject;
+        if (xhr.status === 304) {
+          cacheObject = Backbone.fetchCache.getCache(key);
+          if (cacheObject) {
+            instance.trigger('resetData', cacheObject, options);
+          } else {
+            delete $.etag[key];
+          }
+        } else {
+          success.apply(instance, arguments);
+        }
+      };
+    }
+    return args;
+  }
+
+
 
   Backbone.Collection.prototype.fetch = function(opts) {
     // Bypass caching if it's not enabled
@@ -689,19 +743,31 @@
       }
     }
 
+    // Add etags
+    if (Backbone.fetchCache.useEtags) {
+      opts.ifModified = true;
+    }
+
+    self.on('resetData', function(cacheObject, opts) {
+      _.extend(cacheObject, __setTimers(self, opts, cacheObject.value));
+    });
+
     // Delegate to the actual fetch method and store the attributes in the cache
-    var jqXHR = superMethods.collectionFetch.apply(this, arguments),
+    var jqXHR = superMethods.collectionFetch.apply(self, arguments),
       resolveArgs = [];
     if (Backbone.fetchCache.selfParameter) {
       resolveArgs.push(this);
     }
 
     // resolve the returned promise when the AJAX call completes
-    jqXHR.done(function(data) {
-      deferred.resolve.apply(self, resolveArgs.concat([data, self]));
+    jqXHR.done(function(data, status, xhr) {
+      // kill the promise for now as it will resolved from the resetData event
+      if (!(xhr && xhr.status === 304)) {
+        deferred.resolve.apply(self, resolveArgs.concat([data, self]));
+      }
     })
     // Set the new data in the cache
-    .done(_.bind(Backbone.fetchCache.setCache, null, this, opts))
+    .done(_.bind(Backbone.fetchCache.setCache, null, self, opts))
     // Reject the promise on fail
     .fail(_.bind.apply(_, [deferred.reject].concat(resolveArgs)));
 

@@ -232,6 +232,12 @@ var MyModel = Backbone.Model.extend({
 });
 ```
 
+### etags 
+etags are enabled by default, to disable etag support
+```js
+Backbone.fetchCache.useEtags = false
+```
+
 ### Cache Priority in localStorage
 When setting items in localStorage, the browser may throw a ```QUOTA_EXCEEDED_ERR```, meaning the store is full. Backbone.fetchCache tries to work around this problem by deleting what it considers the most stale item to make space for the new data. The staleness of data is determined by the sorting function `priorityFn`, which by default returns the oldest item.
 
