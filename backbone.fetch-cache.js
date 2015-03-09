@@ -498,7 +498,7 @@
   // Instance methods
   Backbone.Model.prototype.fetch = function(opts) {
     //Bypass caching if it's not enabled
-    if (!Backbone.fetchCache.enabled) {
+    if (!Backbone.fetchCache.enabled || (opts && opts.cache === false)) {
       return superMethods.modelFetch.apply(this, arguments);
     }
     opts = _.defaults(opts || {}, {
@@ -667,7 +667,7 @@
 
   Backbone.Collection.prototype.fetch = function(opts) {
     // Bypass caching if it's not enabled
-    if (!Backbone.fetchCache.enabled) {
+    if (!Backbone.fetchCache.enabled || (opts && opts.cache === false)) {
       return superMethods.collectionFetch.apply(this, arguments);
     }
 
