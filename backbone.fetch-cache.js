@@ -479,16 +479,18 @@
       return;
     }
 
-    if (supportIndexDB && Backbone.fetchCache.useIndexDB) {
-      loadFromIndexedDB(function(requests) {
-        if (Backbone.fetchCache.prefetch) {
-          // make sure it didn't get turned off by the time the async load is done
-          _prefetchInitializer(requests);
-        }
-      }, indexFailFn);
-    } else {
-      indexFailFn();
-    }
+    _.delay(function() {
+      if (supportIndexDB && Backbone.fetchCache.useIndexDB) {
+        loadFromIndexedDB(function(requests) {
+          if (Backbone.fetchCache.prefetch) {
+            // make sure it didn't get turned off by the time the async load is done
+            _prefetchInitializer(requests);
+          }
+        }, indexFailFn);
+      } else {
+        indexFailFn();
+      }
+    }, 5000);
   }
 
   function nextTick(fn) {
