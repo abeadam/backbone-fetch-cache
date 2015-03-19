@@ -453,9 +453,11 @@
       var processedElement = Backbone.fetchCache.prefetchRetrieveProcessor(element);
       Backbone.fetchCache._prerequests[key] = processedElement;
       fetchHelper(function() {
-        var possibleResult = getCache(key);
+        var possibleResult = getCache(key),
+          instance = new Backbone[processedElement.type](),
+          fetch = instance instanceof Backbone.Model ? superMethods.modelFetch : superMethods.collectionFetch;
         if (!possibleResult || !possibleResult.data || possibleResult.data.expires > (new Date()).getTime()) {
-          (new Backbone[processedElement.type]()).fetch(element.opts);
+          fetch.call(instance, element.opts);
         }
       });
     });
@@ -520,8 +522,8 @@
       return opts.prefill && (!opts.prefillExpires || prefillExpired);
     }
 
-    function setData() {
-      var resolveValues = (Backbone.fetchCache.selfParameter ? [] : [data.value]).concat(self);
+    function setData(rawData) {
+      var resolveValues = (Backbone.fetchCache.selfParameter ? [] : [attributes]).concat(self);
       if (opts.parse) {
         attributes = self.parse(attributes, opts);
       }
@@ -542,7 +544,11 @@
       // ...finish and return if we're not
       else {
         if (_.isFunction(opts.success)) {
-          opts.success(self, attributes, opts);
+          if (rawData) {
+            opts.success.apply(self, resolveValues);
+          } else {
+            opts.success(self, attributes, opts);
+          }
         }
         deferred.resolve.apply(self, resolveValues);
       }
@@ -582,8 +588,11 @@
       opts.ifModified = true;
     }
 
-    self.on('resetData', function(cacheObject, opts) {
-      _.extend(cacheObject, __setTimers(self, opts, cacheObject.value));
+    self.once('resetData', function(cacheObject, options) {
+      data = _.extend(cacheObject, __setTimers(self, options, cacheObject.value));
+      attributes = data.value;
+      opts = options;
+      setData(true);
     });
 
     // Delegate to the actual fetch method and store the attributes in the cache
@@ -594,8 +603,10 @@
     }
 
     // resolve the returned promise when the AJAX call completes
-    jqXHR.done(function(data) {
-      deferred.resolve.apply(self, resolveArgs.concat([data, self]));
+    jqXHR.done(function(data, status, xhr) {
+      if (!(xhr && xhr.status === 304)) {
+        deferred.resolve.apply(self, resolveArgs.concat([data, self]));
+      }
     })
     // Set the new data in the cache
     .done(_.bind(Backbone.fetchCache.setCache, null, this, opts))
@@ -613,8 +624,12 @@
   Backbone.Model.prototype.sync = function(method, model, options) {
     // Only empty the cache if we're doing a create, update, patch or delete.
     // or caching is not enabled
-    if (method === 'read' || !Backbone.fetchCache.enabled) {
-      return superMethods.modelSync.apply(this, __etagOptionSetup(this, arguments));
+    if (method === 'read' || !Backbone.fetchCache.enabled || options.cache === false) {
+      if (Backbone.fetchCache.enabled && options.cache !== false && Backbone.fetchCache.useEtags) {
+        return superMethods.modelSync.apply(this, __etagOptionSetup(this, arguments));
+      } else {
+        return superMethods.modelSync.apply(this, arguments);
+      }
     }
 
     var collection = model.collection,
@@ -633,13 +648,21 @@
     for (i = 0, len = keys.length; i < len; i++) {
       clearItem(keys[i]);
     }
+    if (Backbone.fetchCache.useEtags) {
+      return superMethods.modelSync.apply(this, __etagOptionSetup(this, arguments));
+    } else {
+      return superMethods.modelSync.apply(this, arguments);
+    }
 
-    return superMethods.modelSync.apply(this, __etagOptionSetup(this, arguments));
   };
 
   // we want to handle etag hits correctly
   Backbone.Collection.prototype.sync = function(method, collection, options) {
-    return superMethods.collectionSync.apply(this, __etagOptionSetup(this, arguments));
+    if (Backbone.fetchCache.enabled && options.cache !== false && Backbone.fetchCache.useEtags) {
+      return superMethods.collectionSync.apply(this, __etagOptionSetup(this, arguments));
+    } else {
+      return superMethods.collectionSync.apply(this, arguments);
+    }
   };
 
   function __etagOptionSetup(instance, args) {
@@ -649,16 +672,21 @@
     if (Backbone.fetchCache.enabled && options.cache && Backbone.fetchCache.useEtags) {
       success = options.success;
       options.success = function(resp, status, xhr) {
-        var cacheObject;
-        if (xhr.status === 304) {
+        var cacheObject,
+          optionsCopy = _.extend({}, options, {
+            success: success
+          });
+        if (xhr && xhr.status === 304) {
           cacheObject = Backbone.fetchCache.getCache(key);
           if (cacheObject) {
-            instance.trigger('resetData', cacheObject, options);
+            instance.trigger('resetData', cacheObject, optionsCopy);
           } else {
             delete $.etag[key];
           }
         } else {
-          success.apply(instance, arguments);
+          if (success) {
+            success.apply(instance, arguments);
+          }
         }
       };
     }
@@ -693,8 +721,8 @@
       return opts.prefill && (!opts.prefillExpires || prefillExpired);
     }
 
-    function setData() {
-      var resolveValues = (Backbone.fetchCache.selfParameter ? [] : [data.value]).concat(self);
+    function setData(rawData) {
+      var resolveValues = (Backbone.fetchCache.selfParameter ? [] : [attributes]).concat(self);
       self[opts.reset ? 'reset' : 'set'](attributes, opts);
       if (_.isFunction(opts.prefillSuccess)) {
         opts.prefillSuccess(self);
@@ -711,7 +739,12 @@
       // ...finish and return if we're not
       else {
         if (_.isFunction(opts.success)) {
-          opts.success(self, attributes, opts);
+          if (rawData) {
+            opts.success.apply(self, resolveValues);
+          } else {
+            opts.success(self, attributes, opts);
+          }
+
         }
         deferred.resolve.apply(self, resolveValues);
       }
@@ -752,9 +785,13 @@
       opts.ifModified = true;
     }
 
-    self.on('resetData', function(cacheObject, opts) {
-      _.extend(cacheObject, __setTimers(self, opts, cacheObject.value));
+    self.once('resetData', function(cacheObject, options) {
+      data = _.extend(cacheObject, __setTimers(self, options, cacheObject.value));
+      attributes = data.value;
+      opts = options;
+      setData(true);
     });
+
 
     // Delegate to the actual fetch method and store the attributes in the cache
     var jqXHR = superMethods.collectionFetch.apply(self, arguments),
